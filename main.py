@@ -46,9 +46,39 @@ def calculateConditionsAtCurrentGridpoint(timestepNumber, gridpointNumber, curre
     #TODO: implenet this
     print('lol haha')
 
+def calculateLeft(dtDx, gridPointA, gridpointB):
+    velocityLeft = (gridpointB.velocity +
+                    dtDx*(gridpointB.celerity * gridPointA.velocity - gridPointA.celerity * gridpointB.velocity)) \
+                   / (1 + dtDx*(gridpointB.velocity +gridpointB.celerity - gridPointA.velocity - gridPointA.celerity))
+
+    celerityLeft = ((gridpointB.celerity) + velocityLeft*(gridPointA.celerity - gridpointB.celerity)) \
+                   / (1+ gridpointB.celerity - gridPointA.celerity)
+
+    depthLeft = (celerityLeft ** 2) / gravity
+
+    gridPointLeft = GridPoint(depthLeft, celerityLeft, velocityLeft)
+
+    return gridPointLeft
+
+
+def calculateRight(dtDx, gridpointB, gridpointC):
+    velocityRight = (gridpointB.velocity +
+                    dtDx * (gridpointB.celerity * gridpointC.velocity - gridpointC.celerity * gridpointB.velocity)) \
+                   / (1 + dtDx * (
+                gridpointC.velocity + gridpointC.celerity - gridpointB.velocity - gridpointB.celerity))
+
+    celerityRight = ((gridpointB.celerity) + velocityRight * (gridpointB.celerity - gridpointC.celerity)) \
+                   / (1 + gridpointB.celerity - gridpointC.celerity)
+
+    depthRight = (celerityRight ** 2) / gravity
+
+    gridPointRight = GridPoint(depthRight, celerityRight, velocityRight)
+
+    return gridPointRight
+
 def populateGrid(mainGrid, timestepSize, xDistanceSize):
     # calculate the number of timesteps we have in a 24 hour period
-    numTimesteps = (24 *3600)/timestepSize
+    numTimesteps = (24 * 3600)/timestepSize
 
     # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
     numHorizontalGridPoints = 7
@@ -57,15 +87,36 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
     currentGridPoint = 2
 
     while (currentTimestep <= numTimesteps):
-        #do stuff
+        # append a new empty list of gridpoints to the current time step
+        mainGrid.append([])
+
+        # start populating the current list of gridpoints at this timestep
         leftBoundaryConditions = calculateLeftBoundaryConditions(timestepSize * currentTimestep)
-        rightBoundaryConditions = calculateRightBoundaryConditions(timestepSize * currentTimestep)
+        mainGrid[currentTimestep].append(leftBoundaryConditions)
+
 
         #calculate conditions at each grid point between boundary
         #gridpoints 1 and 7 are the boundary conditions points
         while (currentGridPoint < numHorizontalGridPoints):
             #calculate flow conditions at this grid point
+            #get grid points at (x-1), (t-1) and x, t-1 and x+1, t-1, name them A, B C as in textbook convention
+            #shouldn't have to worry about indexing beyond bounds of list as we are starting at 1+ our boundary conditions
+            gridPointA = mainGrid[currentTimestep - 1][currentGridPoint - 1]
+            gridPointC = mainGrid[currentTimestep - 1][currentGridPoint + 1]
+            gridPointB = mainGrid[currentTimestep - 1][currentGridPoint]
 
+            left = calculateLeft(timestepSize/xDistanceSize, gridPointA, gridPointB)
+            right = calculateRight(timestepSize/xDistanceSize, gridPointB, gridPointC)
+
+            # ignore friction factor for now
+            currentVelocity = (left.velocity + right.velocity + 2*(left.celerity - right.celerity)) / 2
+            currentCelerity = (left.velocity - right.velocity + 2*(left.celerity + right.celerity)) / 4
+            currentDepth = (currentCelerity ** 2) / gravity
+            currentGridPoint += 1
+
+        rightBoundaryConditions = calculateRightBoundaryConditions(timestepSize * currentTimestep)
+        mainGrid[currentTimestep].append(rightBoundaryConditions)
+        currentTimestep += 1
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
