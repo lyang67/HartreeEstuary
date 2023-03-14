@@ -32,19 +32,43 @@ def set_init_conditions():
     allGridPoints = [initGridPoints]
     return allGridPoints
 
-def calculateRightBoundaryConditions(time):
-    #TODO: implement for real
-    rightGridpoint = GridPoint(0,0,0)
-    return rightGridpoint
+# only get the left characteristic
+def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
+    if (time <= 0):
+        return
 
-def calculateLeftBoundaryConditions(time):
-    #TODO: implement for real
-    leftGridpoint = GridPoint(0,0,0)
-    return leftGridpoint
+    #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
+    rightBoundaryDepth = math.sin(0.2 * time) + 0.8
+    rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
-def calculateConditionsAtCurrentGridpoint(timestepNumber, gridpointNumber, currentGrid):
-    #TODO: implenet this
-    print('lol haha')
+    leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
+    velocityLeft = leftGridPoint.velocity
+
+    celerityLeft = leftGridPoint.celerity
+
+    rightBoundaryVelocity = velocityLeft + 2*(celerityLeft - rightBoundaryCelerity)
+
+    rightBoundaryGridpoint = GridPoint(rightBoundaryDepth, rightBoundaryCelerity, rightBoundaryVelocity)
+    return rightBoundaryGridpoint
+
+def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dtDx):
+    #TODO: assuming we know depth at this left boundary but unsure what we know here, check with H Chanson
+    if (time <= 0):
+        return
+
+    #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
+    leftBoundaryDepth = math.sin(0.2 * time) + 1.4
+    leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
+
+    rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
+    velocityright = rightGridPoint.velocity
+
+    celerityright = rightGridPoint.celerity
+
+    leftBoundaryVelocity = velocityright + 2*(celerityright - leftBoundaryCelerity)
+
+    leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, leftBoundaryVelocity)
+    return leftBoundaryGridpoint
 
 def calculateLeft(dtDx, gridPointA, gridpointB):
     velocityLeft = (gridpointB.velocity +
@@ -52,7 +76,7 @@ def calculateLeft(dtDx, gridPointA, gridpointB):
                    / (1 + dtDx*(gridpointB.velocity +gridpointB.celerity - gridPointA.velocity - gridPointA.celerity))
 
     celerityLeft = ((gridpointB.celerity) + velocityLeft*(gridPointA.celerity - gridpointB.celerity)) \
-                   / (1+ gridpointB.celerity - gridPointA.celerity)
+                   / (1 + dtDx * (gridpointB.celerity - gridPointA.celerity))
 
     depthLeft = (celerityLeft ** 2) / gravity
 
@@ -68,7 +92,7 @@ def calculateRight(dtDx, gridpointB, gridpointC):
                 gridpointC.velocity + gridpointC.celerity - gridpointB.velocity - gridpointB.celerity))
 
     celerityRight = ((gridpointB.celerity) + velocityRight * (gridpointB.celerity - gridpointC.celerity)) \
-                   / (1 + gridpointB.celerity - gridpointC.celerity)
+                   / (1 + dtDx * (gridpointB.celerity - gridpointC.celerity))
 
     depthRight = (celerityRight ** 2) / gravity
 
@@ -112,6 +136,9 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             currentVelocity = (left.velocity + right.velocity + 2*(left.celerity - right.celerity)) / 2
             currentCelerity = (left.velocity - right.velocity + 2*(left.celerity + right.celerity)) / 4
             currentDepth = (currentCelerity ** 2) / gravity
+
+            mGridPoint = GridPoint(currentDepth, currentCelerity, currentVelocity)
+            mainGrid[currentTimestep].append(mGridPoint)
             currentGridPoint += 1
 
         rightBoundaryConditions = calculateRightBoundaryConditions(timestepSize * currentTimestep)
@@ -122,8 +149,9 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
 if __name__ == '__main__':
     #TODO: the sites don't look 250m apart, but figure this out later
     gridSizeX = 250
-    #every 1/2 hour for now, so we don't have to wait forever for the computation to finish while testing
-    gridSizeY = 1800
+    #every 1 hour (in units seconds) for now, so we don't have to wait forever for the computation to finish while testing
+    gridSizeY = 3600
     hartTreeGrid = set_init_conditions()
+    populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
