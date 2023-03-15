@@ -173,10 +173,8 @@ if __name__ == '__main__':
         print('Timestep number ' + str(timestepCounter))
         gridCounter = 0
         for gridpoint in hartTreeGrid[timestepCounter]:
-            print('Grid number ' + str(gridCounter))
-            print('Celerity is ' + str(gridpoint.celerity))
-            print('Velocity is ' + str(gridpoint.velocity))
-            print('Depth is ' + str(gridpoint.depth))
+            print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
+                  + ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
             gridCounter += 1
         timestepCounter += 1
 
