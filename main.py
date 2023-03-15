@@ -38,7 +38,7 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
         return
 
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    rightBoundaryDepth = math.sin(0.2 * time) + 0.8
+    rightBoundaryDepth = math.sin(4.7 + 0.25 * time) + 1.2
     rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
@@ -107,21 +107,27 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
     # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
     numHorizontalGridPoints = 7
 
+    # 0 based indexing for the grid
     currentTimestep = 1
-    currentGridPoint = 2
+    currentGridPoint = 1
 
     while (currentTimestep <= numTimesteps):
         # append a new empty list of gridpoints to the current time step
         mainGrid.append([])
 
         # start populating the current list of gridpoints at this timestep
-        leftBoundaryConditions = calculateLeftBoundaryConditions(timestepSize * currentTimestep)
+        leftBoundaryConditions = calculateLeftBoundaryConditions\
+            (timestepSize * currentTimestep,
+             mainGrid[currentTimestep - 1][currentGridPoint -1],
+             mainGrid[currentTimestep - 1][currentGridPoint],
+             timestepSize/xDistanceSize)
+
         mainGrid[currentTimestep].append(leftBoundaryConditions)
 
 
         #calculate conditions at each grid point between boundary
         #gridpoints 1 and 7 are the boundary conditions points
-        while (currentGridPoint < numHorizontalGridPoints):
+        while (currentGridPoint < numHorizontalGridPoints - 1):
             #calculate flow conditions at this grid point
             #get grid points at (x-1), (t-1) and x, t-1 and x+1, t-1, name them A, B C as in textbook convention
             #shouldn't have to worry about indexing beyond bounds of list as we are starting at 1+ our boundary conditions
@@ -141,8 +147,16 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             mainGrid[currentTimestep].append(mGridPoint)
             currentGridPoint += 1
 
-        rightBoundaryConditions = calculateRightBoundaryConditions(timestepSize * currentTimestep)
+        # we have incremented the index to the boundary condition index before exiting loop, so point "A" is at gridpoint -1 \
+        # and point "B" is at current grid point
+        rightBoundaryConditions = calculateRightBoundaryConditions(
+            timestepSize * currentTimestep,
+            mainGrid[currentTimestep - 1][currentGridPoint - 1],
+            mainGrid[currentTimestep - 1][currentGridPoint],
+            timestepSize / xDistanceSize
+        )
         mainGrid[currentTimestep].append(rightBoundaryConditions)
+        currentGridPoint = 1
         currentTimestep += 1
 
 # Press the green button in the gutter to run the script.
