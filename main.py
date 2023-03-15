@@ -168,4 +168,16 @@ if __name__ == '__main__':
     hartTreeGrid = set_init_conditions()
     populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
 
+    timestepCounter = 0
+    for timestep in hartTreeGrid:
+        print('Timestep number ' + str(timestepCounter))
+        gridCounter = 0
+        for gridpoint in hartTreeGrid[timestepCounter]:
+            print('Grid number ' + str(gridCounter))
+            print('Celerity is ' + str(gridpoint.celerity))
+            print('Velocity is ' + str(gridpoint.velocity))
+            print('Depth is ' + str(gridpoint.depth))
+            gridCounter += 1
+        timestepCounter += 1
+
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
