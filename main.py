@@ -17,12 +17,12 @@ def print_hi(name):
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
 def set_init_conditions():
-    leftBoundaryGridPoint = GridPoint(1.4, math.sqrt(gravity * 1.4), 0.1)
-    site2CGridpoint = GridPoint(1.3, math.sqrt(gravity * 1.3), 0.1)
-    site22GridPoint = GridPoint(1.2, math.sqrt(gravity * 1.2), 0.2)
-    site21GridPoint = GridPoint(1.1, math.sqrt(gravity * 1.1), 0.3)
-    site2BGridPoint = GridPoint(1.0, math.sqrt(gravity * 1.0), 0.4)
-    site2GridPoint = GridPoint(0.9, math.sqrt(gravity * 0.9), 0.5)
+    leftBoundaryGridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.1)
+    site2CGridpoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.1)
+    site22GridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.2)
+    site21GridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.3)
+    site2BGridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.4)
+    site2GridPoint = GridPoint(0.9, math.sqrt(gravity * 0.8), 0.5)
     rightBoundaryGridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.1)
 
     initGridPoints = [leftBoundaryGridPoint, site2CGridpoint, site22GridPoint, site21GridPoint, site2BGridPoint,
@@ -38,7 +38,7 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
         return
 
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    rightBoundaryDepth = math.sin(4.7 + 0.25 * time) + 1.2
+    rightBoundaryDepth = math.sin(4.7 + 0.25 * time) + 1.8
     rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
@@ -57,7 +57,7 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dtDx):
         return
 
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    leftBoundaryDepth = math.sin(0.2 * time) + 1.4
+    leftBoundaryDepth = math.sin(4.7 + 0.25 * time) + 1.8
     leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
 
     rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
@@ -65,7 +65,7 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dtDx):
 
     celerityright = rightGridPoint.celerity
 
-    leftBoundaryVelocity = velocityright + 2*(celerityright - leftBoundaryCelerity)
+    leftBoundaryVelocity = velocityright - 2*(celerityright + leftBoundaryCelerity)
 
     leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, leftBoundaryVelocity)
     return leftBoundaryGridpoint
