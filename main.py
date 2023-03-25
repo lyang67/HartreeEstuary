@@ -1,5 +1,6 @@
 # This is a sample Python script.
 import math
+import csv
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
@@ -11,19 +12,17 @@ class GridPoint:
         self.celerity = c
         self.velocity = v
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
 def set_init_conditions():
-    leftBoundaryGridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.1)
-    site2CGridpoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.1)
-    site22GridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.2)
-    site21GridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.3)
-    site2BGridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.4)
-    site2GridPoint = GridPoint(0.9, math.sqrt(gravity * 0.8), 0.5)
-    rightBoundaryGridPoint = GridPoint(0.8, math.sqrt(gravity * 0.8), 0.1)
+    initialDepth = 2.3
+    initialCelerity = math.sqrt(gravity * initialDepth)
+
+    leftBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, 0.1)
+    site2CGridpoint = GridPoint(initialDepth, initialCelerity, 0.1)
+    site22GridPoint = GridPoint(initialDepth, initialCelerity, 0.1)
+    site21GridPoint = GridPoint(initialDepth, initialCelerity, 0.1)
+    site2BGridPoint = GridPoint(initialDepth, initialCelerity, 0.1)
+    site2GridPoint = GridPoint(initialDepth, initialCelerity, 0.1)
+    rightBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, 0.1)
 
     initGridPoints = [leftBoundaryGridPoint, site2CGridpoint, site22GridPoint, site21GridPoint, site2BGridPoint,
                       site2GridPoint, rightBoundaryGridPoint]
@@ -37,8 +36,10 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
     if (time <= 0):
         return
 
+    #convert time to hours
+    timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    rightBoundaryDepth = math.sin(4.7 + 0.25 * time) + 1.8
+    rightBoundaryDepth = math.cos(0.083 * math.pi * timeHours) + 1.3
     rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
@@ -56,16 +57,17 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dtDx):
     if (time <= 0):
         return
 
-    #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    leftBoundaryDepth = math.sin(4.7 + 0.25 * time) + 1.8
-    leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
+    #left boundary velocity is 0 since there is no inflow
+    leftBoundaryVelocity = 0
 
+    # calculate right gridpoint
     rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
     velocityright = rightGridPoint.velocity
-
     celerityright = rightGridPoint.celerity
 
-    leftBoundaryVelocity = velocityright - 2*(celerityright + leftBoundaryCelerity)
+    # calculate left celerity using backwards characteristic
+    leftBoundaryCelerity = (leftBoundaryVelocity - velocityright + 2*celerityright) / 2
+    leftBoundaryDepth = leftBoundaryCelerity**2 / gravity
 
     leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, leftBoundaryVelocity)
     return leftBoundaryGridpoint
@@ -103,6 +105,7 @@ def calculateRight(dtDx, gridpointB, gridpointC):
 def populateGrid(mainGrid, timestepSize, xDistanceSize):
     # calculate the number of timesteps we have in a 24 hour period
     numTimesteps = (24 * 3600)/timestepSize
+    dxDt = xDistanceSize / timestepSize
 
     # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
     numHorizontalGridPoints = 7
@@ -121,6 +124,10 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
              mainGrid[currentTimestep - 1][currentGridPoint -1],
              mainGrid[currentTimestep - 1][currentGridPoint],
              timestepSize/xDistanceSize)
+
+        if CheckCourantCondition(leftBoundaryConditions, dxDt) is not True:
+            print('Courant condition failed at left boundary')
+            return False
 
         mainGrid[currentTimestep].append(leftBoundaryConditions)
 
@@ -144,6 +151,11 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             currentDepth = (currentCelerity ** 2) / gravity
 
             mGridPoint = GridPoint(currentDepth, currentCelerity, currentVelocity)
+
+            if CheckCourantCondition(mGridPoint, dxDt) is not True:
+                print('Courant condition failed at in the middle')
+                return False
+
             mainGrid[currentTimestep].append(mGridPoint)
             currentGridPoint += 1
 
@@ -155,27 +167,69 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             mainGrid[currentTimestep - 1][currentGridPoint],
             timestepSize / xDistanceSize
         )
+
+        if CheckCourantCondition(mGridPoint, dxDt) is not True:
+            print('Courant condition failed at right boundary')
+            return False
+
         mainGrid[currentTimestep].append(rightBoundaryConditions)
         currentGridPoint = 1
         currentTimestep += 1
+    return True
+
+def CheckCourantCondition(gridpoint, dtDx):
+    courantCoundition = abs(gridpoint.velocity + gridpoint.celerity) / dtDx
+
+    if courantCoundition > 1:
+        return False
+    return True
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     #TODO: the sites don't look 250m apart, but figure this out later
     gridSizeX = 250
-    #every 1 hour (in units seconds) for now, so we don't have to wait forever for the computation to finish while testing
-    gridSizeY = 3600
+    #set our timestep to 30s
+    gridSizeY = 30
     hartTreeGrid = set_init_conditions()
-    populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
+    populateGridResult = populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
 
-    timestepCounter = 0
-    for timestep in hartTreeGrid:
-        print('Timestep number ' + str(timestepCounter))
-        gridCounter = 0
-        for gridpoint in hartTreeGrid[timestepCounter]:
-            print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
-                  + ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
-            gridCounter += 1
-        timestepCounter += 1
+    if populateGridResult is not True:
+        print('Courant condition check failed, check output')
+
+    with open('results.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        headingGrids = [' ', 'Left Boundary', ' ',
+                        '', 'Gridpoint 1', '',
+                        '', 'Gridpoint 2', '',
+                        '', 'Gridpoint 3', '',
+                        '', 'Gridpoint 4', '',
+                        '', 'Gridpoint 5', '',
+                        '', 'Right Boundary', '']
+        writer.writerow(headingGrids)
+
+        headingTypes = ['Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)']
+        writer.writerow(headingTypes)
+
+        timestepCounter = 0
+
+        for timestep in hartTreeGrid:
+            print('Timestep number ' + str(timestepCounter))
+            gridCounter = 0
+            currentTimestepValues = []
+            for gridpoint in hartTreeGrid[timestepCounter]:
+                currentTimestepValues.append(gridpoint.depth)
+                currentTimestepValues.append(gridpoint.celerity)
+                currentTimestepValues.append(gridpoint.velocity)
+                print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
+                      + ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
+                gridCounter += 1
+            writer.writerow(currentTimestepValues)
+            timestepCounter += 1
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
