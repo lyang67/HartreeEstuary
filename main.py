@@ -178,9 +178,10 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
     return True
 
 def CheckCourantCondition(gridpoint, dtDx):
-    courantCoundition = abs(gridpoint.velocity + gridpoint.celerity) / dtDx
+    courantCoundition1 = abs(gridpoint.velocity + gridpoint.celerity) / dtDx
+    courantCoundition2 = abs(gridpoint.velocity - gridpoint.celerity) / dtDx
 
-    if courantCoundition > 1:
+    if courantCoundition1 > 1 or courantCoundition2 > 1:
         return False
     return True
 
