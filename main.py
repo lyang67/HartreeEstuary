@@ -39,7 +39,7 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
     #convert time to hours
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    rightBoundaryDepth = math.cos(0.083 * math.pi * timeHours) + 1.3
+    rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 1.3
     rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
