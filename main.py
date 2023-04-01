@@ -5,30 +5,35 @@ import csv
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 gravity = 9.8
+frictionFactor = 0.025
+withFriction = True
+diagnosticPrint = False
 
 class GridPoint:
-    def __init__(self, d, c, v, x=0, ca=0, pw=0):
+    def __init__(self, d, c, v, sf, x):
         self.depth = d
         self.celerity = c
         self.velocity = v
-        self.crossSectionArea = ca
-        self.wettedPerimeter = pw
+        self.frictionSlope = sf
         self.xLocation = x
 
 def set_init_conditions():
     initialDepth = 2.3
     initialCelerity = math.sqrt(gravity * initialDepth)
-
+    initialVelocity = 0
     initialCrossSection = initialDepth*50
     initialWettedPerimeter = 2*initialDepth + 50
+    initialHydraulicDiameter = (4*initialCrossSection) / initialWettedPerimeter
+    initialFrictionSlope = calculateFrictionSlope(frictionFactor, initialVelocity, initialHydraulicDiameter)
 
-    leftBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, 0.1, 0, initialCrossSection, initialWettedPerimeter)
-    site2CGridpoint = GridPoint(initialDepth, initialCelerity, 0.1, 300, initialCrossSection, initialWettedPerimeter)
-    site22GridPoint = GridPoint(initialDepth, initialCelerity, 0.1, 600, initialCrossSection, initialWettedPerimeter)
-    site21GridPoint = GridPoint(initialDepth, initialCelerity, 0.1, 900, initialCrossSection, initialWettedPerimeter)
-    site2BGridPoint = GridPoint(initialDepth, initialCelerity, 0.1, 1200, initialCrossSection, initialWettedPerimeter)
-    site2GridPoint = GridPoint(initialDepth, initialCelerity, 0.1, 1500, initialCrossSection, initialWettedPerimeter)
-    rightBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, 0.1, 1800, initialCrossSection, initialWettedPerimeter)
+
+    leftBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 0)
+    site2CGridpoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 300)
+    site22GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 600)
+    site21GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 900)
+    site2BGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1200)
+    site2GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1500)
+    rightBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1800)
 
     initGridPoints = [leftBoundaryGridPoint, site2CGridpoint, site22GridPoint, site21GridPoint, site2BGridPoint,
                       site2GridPoint, rightBoundaryGridPoint]
@@ -38,10 +43,11 @@ def set_init_conditions():
     return allGridPoints
 
 # only get the left characteristic
-def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
+def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
     if (time <= 0):
         return
 
+    dtDx = dt / dx
     #convert time to hours
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
@@ -53,16 +59,22 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dtDx):
 
     celerityLeft = leftGridPoint.celerity
 
-    rightBoundaryVelocity = velocityLeft + 2*(celerityLeft - rightBoundaryCelerity)
+    if withFriction:
+        rightBoundaryVelocity = velocityLeft + 2*(celerityLeft - rightBoundaryCelerity) - \
+                                gravity*dt * gridpointB.frictionSlope
+    else:
+        rightBoundaryVelocity = velocityLeft + 2*(celerityLeft - rightBoundaryCelerity)
 
-    rightBoundaryGridpoint = GridPoint(rightBoundaryDepth, rightBoundaryCelerity, rightBoundaryVelocity)
+    currentHydraulicDiameter = calculateHydraulicDiameter(rightBoundaryDepth, gridpointB.xLocation)
+    currentFrictionSlope = calculateFrictionSlope(frictionFactor, rightBoundaryVelocity, currentHydraulicDiameter)
+    rightBoundaryGridpoint = GridPoint(rightBoundaryDepth, rightBoundaryCelerity, rightBoundaryVelocity,
+                                       currentFrictionSlope, gridpointB.xLocation)
     return rightBoundaryGridpoint
 
-def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dtDx):
-    #TODO: assuming we know depth at this left boundary but unsure what we know here, check with H Chanson
+def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
     if (time <= 0):
         return
-
+    dtDx = dt / dx
     #left boundary velocity is 0 since there is no inflow
     leftBoundaryVelocity = 0
 
@@ -71,11 +83,19 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dtDx):
     velocityright = rightGridPoint.velocity
     celerityright = rightGridPoint.celerity
 
-    # calculate left celerity using backwards characteristic
-    leftBoundaryCelerity = (leftBoundaryVelocity - velocityright + 2*celerityright) / 2
+    if withFriction:
+        # calculate left celerity using backwards characteristic
+        leftBoundaryCelerity = (leftBoundaryVelocity - velocityright + 2*celerityright -
+                                gravity * dt * (1 * gridPointB.frictionSlope)) / 2
+    else:
+        leftBoundaryCelerity = (leftBoundaryVelocity - velocityright + 2*celerityright) / 2
+
     leftBoundaryDepth = leftBoundaryCelerity**2 / gravity
 
-    leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, leftBoundaryVelocity)
+    currentHydraulicDiameter = calculateHydraulicDiameter(leftBoundaryDepth, gridPointB.xLocation)
+    currentFrictionSlope = calculateFrictionSlope(frictionFactor, leftBoundaryVelocity, currentHydraulicDiameter)
+    leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, leftBoundaryVelocity,
+                                      currentFrictionSlope, gridPointB.xLocation)
     return leftBoundaryGridpoint
 
 def calculateLeft(dtDx, gridPointA, gridpointB):
@@ -88,7 +108,10 @@ def calculateLeft(dtDx, gridPointA, gridpointB):
 
     depthLeft = (celerityLeft ** 2) / gravity
 
-    gridPointLeft = GridPoint(depthLeft, celerityLeft, velocityLeft)
+    #todo for completeness calculate xL
+
+    #don't care about friction slope or location on the characteristic for now
+    gridPointLeft = GridPoint(depthLeft, celerityLeft, velocityLeft, 0, 0)
 
     return gridPointLeft
 
@@ -104,7 +127,7 @@ def calculateRight(dtDx, gridpointB, gridpointC):
 
     depthRight = (celerityRight ** 2) / gravity
 
-    gridPointRight = GridPoint(depthRight, celerityRight, velocityRight)
+    gridPointRight = GridPoint(depthRight, celerityRight, velocityRight, 0, 0)
 
     return gridPointRight
 
@@ -124,9 +147,9 @@ def calculateHydraulicDiameter(depth, xLocation):
 
 def calculateFrictionSlope(frictionFactor, interpolatedVelocity, hydraulicDiameter):
     frictionSlope = (frictionFactor * interpolatedVelocity**2)/(8 * gravity * (hydraulicDiameter / 4))
-
     return frictionSlope
 
+#TODO replace with varied bottom width function
 def getBottomWidthAtLocation(xLocation):
     return 50
 
@@ -143,6 +166,8 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
     currentGridPoint = 1
 
     while (currentTimestep <= numTimesteps):
+
+        print('Timestep number ' + str(currentTimestep))
         # append a new empty list of gridpoints to the current time step
         mainGrid.append([])
 
@@ -151,7 +176,7 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             (timestepSize * currentTimestep,
              mainGrid[currentTimestep - 1][currentGridPoint -1],
              mainGrid[currentTimestep - 1][currentGridPoint],
-             timestepSize/xDistanceSize)
+             timestepSize, xDistanceSize)
 
         if CheckCourantCondition(leftBoundaryConditions, dxDt) is not True:
             print('Courant condition failed at left boundary')
@@ -163,6 +188,7 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
         #calculate conditions at each grid point between boundary
         #gridpoints 1 and 7 are the boundary conditions points
         while (currentGridPoint < numHorizontalGridPoints - 1):
+            print('current grid point is ' + str(currentGridPoint))
             #calculate flow conditions at this grid point
             #get grid points at (x-1), (t-1) and x, t-1 and x+1, t-1, name them A, B C as in textbook convention
             #shouldn't have to worry about indexing beyond bounds of list as we are starting at 1+ our boundary conditions
@@ -174,27 +200,29 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             left = calculateLeft(timestepSize/xDistanceSize, gridPointA, gridPointB)
             right = calculateRight(timestepSize/xDistanceSize, gridPointB, gridPointC)
 
-            # TODO update the left and right x location
-            frictionFactor = 0.025
-            hydraulicDiameterLeft = calculateHydraulicDiameter(left.depth, xLocation)
-            frictionSlopeLeft = calculateFrictionSlope(frictionFactor, left.velocity, hydraulicDiameterLeft)
+            if withFriction:
+                # TODO update the left and right x location
+                #alternative versions of velocity and celerity calculation with friction
+                currentVelocity = (left.velocity + right.velocity + 2 * (left.celerity - right.celerity) \
+                                   - gravity * timestepSize * gridPointB.frictionSlope) / 2
+                currentCelerity = (left.velocity - right.velocity + 2 * (left.celerity + right.celerity) \
+                                   - gravity * timestepSize * gridPointB.frictionSlope) / 4
 
-            hydraulicDiameterRight = calculateHydraulicDiameter(right.depth, xLocation)
-            frictionSlopeRight = calculateFrictionSlope(frictionFactor, right.velocity, hydraulicDiameterRight)
+            else:
+                # ignore friction factor for now
+                currentVelocity = (left.velocity + right.velocity + 2*(left.celerity - right.celerity)) / 2
+                currentCelerity = (left.velocity - right.velocity + 2*(left.celerity + right.celerity)) / 4
 
-            #alternative versions of velocity and celerity calculation with friction
-            currentVelocity = (left.velocity + right.velocity + 2 * (left.celerity - right.celerity)) / 2 \
-                              - gravity * timestepSize * (frictionSlopeLeft + frictionSlopeRight)
-            currentCelerity = (left.velocity - right.velocity + 2 * (left.celerity + right.celerity)) / 4 \
-                              - gravity * timestepSize * (frictionSlopeLeft - frictionSlopeRight)
-
-            # ignore friction factor for now
-            #currentVelocity = (left.velocity + right.velocity + 2*(left.celerity - right.celerity)) / 2
-            #currentCelerity = (left.velocity - right.velocity + 2*(left.celerity + right.celerity)) / 4
             currentDepth = (currentCelerity ** 2) / gravity
-            #same xLocation
-            mGridPoint = GridPoint(currentDepth, currentCelerity, currentVelocity, xLocation)
 
+            #same xLocation
+            currentHydraulicDiameter = calculateHydraulicDiameter(currentDepth, gridPointB.xLocation)
+            currentFrictionSlope = calculateFrictionSlope(frictionFactor, currentVelocity, currentHydraulicDiameter)
+            mGridPoint = GridPoint(currentDepth, currentCelerity, currentVelocity, currentFrictionSlope,
+                                   gridPointB.xLocation)
+
+            print('velocity is ' + str(currentVelocity) + ' and celerity is ' + str(currentCelerity) +
+                  ' and depth is ' +str(currentDepth) + ' and friction slope is ' + str(currentFrictionSlope))
             if CheckCourantCondition(mGridPoint, dxDt) is not True:
                 print('Courant condition failed at in the middle')
                 return False
@@ -208,8 +236,11 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
             timestepSize * currentTimestep,
             mainGrid[currentTimestep - 1][currentGridPoint - 1],
             mainGrid[currentTimestep - 1][currentGridPoint],
-            timestepSize / xDistanceSize
+            timestepSize, xDistanceSize
         )
+
+        print('Right boundary velocity is ' + str(rightBoundaryConditions.velocity) + ' and celerity is ' + str(rightBoundaryConditions.celerity) +
+              ' and depth is ' + str(rightBoundaryConditions.depth) + ' and friction slope is ' + str(rightBoundaryConditions.frictionSlope))
 
         if CheckCourantCondition(mGridPoint, dxDt) is not True:
             print('Courant condition failed at right boundary')
@@ -265,15 +296,17 @@ if __name__ == '__main__':
         timestepCounter = 0
 
         for timestep in hartTreeGrid:
-            print('Timestep number ' + str(timestepCounter))
             gridCounter = 0
             currentTimestepValues = []
             for gridpoint in hartTreeGrid[timestepCounter]:
                 currentTimestepValues.append(gridpoint.depth)
                 currentTimestepValues.append(gridpoint.celerity)
                 currentTimestepValues.append(gridpoint.velocity)
-                #print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
-                      #+ ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
+
+                if diagnosticPrint:
+                    print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
+                          + ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
+
                 gridCounter += 1
             writer.writerow(currentTimestepValues)
             timestepCounter += 1
