@@ -6,7 +6,12 @@ import csv
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 gravity = 9.8
 frictionFactor = 0.025
-withFriction = True
+
+# we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
+numHorizontalGridPoints = 7
+horizontalGridSize = 300
+verticalGridSize = 30
+withFriction = False
 diagnosticPrint = False
 
 class GridPoint:
@@ -18,7 +23,7 @@ class GridPoint:
         self.xLocation = x
 
 def set_init_conditions():
-    initialDepth = 2.3
+    initialDepth = 7
     initialCelerity = math.sqrt(gravity * initialDepth)
     initialVelocity = 0
     initialCrossSection = initialDepth*50
@@ -26,20 +31,26 @@ def set_init_conditions():
     initialHydraulicDiameter = (4*initialCrossSection) / initialWettedPerimeter
     initialFrictionSlope = calculateFrictionSlope(frictionFactor, initialVelocity, initialHydraulicDiameter)
 
+    gridCounter = 0
+    initialGridPoints = []
+    while gridCounter < numHorizontalGridPoints:
+        initialGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope,
+                                     gridCounter * horizontalGridSize)
+        initialGridPoints.append(initialGridPoint)
+        gridCounter += 1
 
-    leftBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 0)
-    site2CGridpoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 300)
-    site22GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 600)
-    site21GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 900)
-    site2BGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1200)
-    site2GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1500)
-    rightBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1800)
+    #leftBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 0)
+    #site2CGridpoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 300)
+    #site22GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 600)
+    #site21GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 900)
+    #site2BGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1200)
+    #site2GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1500)
+    #rightBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1800)
 
-    initGridPoints = [leftBoundaryGridPoint, site2CGridpoint, site22GridPoint, site21GridPoint, site2BGridPoint,
-                      site2GridPoint, rightBoundaryGridPoint]
-    print(initGridPoints)
+   # initGridPoints = [leftBoundaryGridPoint, site2CGridpoint, site22GridPoint, site21GridPoint, site2BGridPoint,
+                      #site2GridPoint, rightBoundaryGridPoint]
 
-    allGridPoints = [initGridPoints]
+    allGridPoints = [initialGridPoints]
     return allGridPoints
 
 # only get the left characteristic
@@ -51,7 +62,7 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
     #convert time to hours
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 1.3
+    rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
     rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
@@ -146,7 +157,7 @@ def calculateHydraulicDiameter(depth, xLocation):
     return (4 * crossSectionArea) / wettedPerimeter
 
 def calculateFrictionSlope(frictionFactor, interpolatedVelocity, hydraulicDiameter):
-    frictionSlope = (frictionFactor * interpolatedVelocity**2)/(8 * gravity * (hydraulicDiameter / 4))
+    frictionSlope = (frictionFactor * interpolatedVelocity * abs(interpolatedVelocity))/(8 * gravity * (hydraulicDiameter / 4))
     return frictionSlope
 
 #TODO replace with varied bottom width function
@@ -158,8 +169,6 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
     numTimesteps = (24 * 3600)/timestepSize
     dxDt = xDistanceSize / timestepSize
 
-    # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
-    numHorizontalGridPoints = 7
 
     # 0 based indexing for the grid
     currentTimestep = 1
@@ -264,9 +273,9 @@ def CheckCourantCondition(gridpoint, dxDt):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     #TODO: the sites don't look 250m apart, but figure this out later
-    gridSizeX = 300
+    gridSizeX = horizontalGridSize
     #set our timestep to 30s
-    gridSizeY = 30
+    gridSizeY = verticalGridSize
     hartTreeGrid = set_init_conditions()
     populateGridResult = populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
 
