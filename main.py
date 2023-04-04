@@ -9,10 +9,13 @@ frictionFactor = 0.025
 
 # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
 numHorizontalGridPoints = 7
-horizontalGridSize = 300
-verticalGridSize = 30
+#original 300 dx, 30 dt
+horizontalGridSize = 100
+verticalGridSize = 5
+hoursToRun = 1
 withFriction = False
 diagnosticPrint = False
+compareAnalytical = False
 
 class GridPoint:
     def __init__(self, d, c, v, sf, x):
@@ -23,7 +26,7 @@ class GridPoint:
         self.xLocation = x
 
 def set_init_conditions():
-    initialDepth = 7
+    initialDepth = 6
     initialCelerity = math.sqrt(gravity * initialDepth)
     initialVelocity = 0
     initialCrossSection = initialDepth*50
@@ -62,10 +65,14 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
     #convert time to hours
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
+    #rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
+    rightBoundaryDepth = 6-(time/3600)*0.5
     rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
-    leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
+    if time == verticalGridSize:
+        leftGridPoint = gridpointB
+    else:
+        leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
     velocityLeft = leftGridPoint.velocity
 
     celerityLeft = leftGridPoint.celerity
@@ -166,7 +173,7 @@ def getBottomWidthAtLocation(xLocation):
 
 def populateGrid(mainGrid, timestepSize, xDistanceSize):
     # calculate the number of timesteps we have in a 24 hour period
-    numTimesteps = (24 * 3600)/timestepSize
+    numTimesteps = (hoursToRun * 3600)/timestepSize
     dxDt = xDistanceSize / timestepSize
 
 
@@ -284,7 +291,7 @@ if __name__ == '__main__':
 
     with open('results.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        headingGrids = [' ', 'Left Boundary', ' ',
+        headingGrids = ['Time' , 'Left Boundary', ' ',
                         '', 'Gridpoint 1', '',
                         '', 'Gridpoint 2', '',
                         '', 'Gridpoint 3', '',
@@ -293,7 +300,7 @@ if __name__ == '__main__':
                         '', 'Right Boundary', '']
         writer.writerow(headingGrids)
 
-        headingTypes = ['Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
+        headingTypes = ['', 'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
                         'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
                         'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
                         'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
@@ -305,8 +312,15 @@ if __name__ == '__main__':
         timestepCounter = 0
 
         for timestep in hartTreeGrid:
+            timeValue = timestepCounter * verticalGridSize
+            if compareAnalytical:
+                if timeValue % 30 != 0:
+                    #only print out 30s timesteps for ease of comparing with analytical solution
+                    timestepCounter += 1
+                    continue
+
             gridCounter = 0
-            currentTimestepValues = []
+            currentTimestepValues = [timeValue]
             for gridpoint in hartTreeGrid[timestepCounter]:
                 currentTimestepValues.append(gridpoint.depth)
                 currentTimestepValues.append(gridpoint.celerity)
