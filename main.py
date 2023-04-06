@@ -8,7 +8,7 @@ gravity = 9.8
 frictionFactor = 0.025
 
 # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
-numHorizontalGridPoints = 7
+numHorizontalGridPoints = 20
 #original 300 dx, 30 dt
 horizontalGridSize = 100
 verticalGridSize = 5
@@ -57,7 +57,7 @@ def set_init_conditions():
     return allGridPoints
 
 # only get the left characteristic
-def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
+def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
     if (time <= 0):
         return
 
@@ -66,62 +66,59 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
     #rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
-    rightBoundaryDepth = 6-(time/3600)*0.5
-    rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
+    leftBoundaryDepth = 6-(time/3600)*0.5
+    leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
 
-    if time == verticalGridSize:
-        leftGridPoint = gridpointB
-    else:
-        leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
-    velocityLeft = leftGridPoint.velocity
+    rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
+    velocityRight = rightGridPoint.velocity
 
-    celerityLeft = leftGridPoint.celerity
+    celerityRight = rightGridPoint.celerity
 
     if withFriction:
-        rightBoundaryVelocity = velocityLeft + 2*(celerityLeft - rightBoundaryCelerity) - \
-                                gravity*dt * gridpointB.frictionSlope
+        rightBoundaryVelocity = velocityRight - 2*celerityRight + 2*leftBoundaryCelerity - \
+                                gravity*dt * gridPointB.frictionSlope
     else:
-        rightBoundaryVelocity = velocityLeft + 2*(celerityLeft - rightBoundaryCelerity)
+        rightBoundaryVelocity = velocityRight - 2*celerityRight + 2*leftBoundaryCelerity
 
-    currentHydraulicDiameter = calculateHydraulicDiameter(rightBoundaryDepth, gridpointB.xLocation)
+    currentHydraulicDiameter = calculateHydraulicDiameter(leftBoundaryDepth, gridPointB.xLocation)
     currentFrictionSlope = calculateFrictionSlope(frictionFactor, rightBoundaryVelocity, currentHydraulicDiameter)
-    rightBoundaryGridpoint = GridPoint(rightBoundaryDepth, rightBoundaryCelerity, rightBoundaryVelocity,
-                                       currentFrictionSlope, gridpointB.xLocation)
-    return rightBoundaryGridpoint
+    leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, rightBoundaryVelocity,
+                                       currentFrictionSlope, gridPointB.xLocation)
+    return leftBoundaryGridpoint
 
-def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
+def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
     if (time <= 0):
         return
     dtDx = dt / dx
-    #left boundary velocity is 0 since there is no inflow
-    leftBoundaryVelocity = 0
+    #right boundary velocity is 0 since there is no inflow
+    rightBoundaryVelocity = 0
 
     # calculate right gridpoint
-    rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
-    velocityright = rightGridPoint.velocity
-    celerityright = rightGridPoint.celerity
+    leftGridPoint = calculateRight(dtDx, gridPointA, gridpointB)
+    velocityLeft= leftGridPoint.velocity
+    celerityLeft = leftGridPoint.celerity
 
     if withFriction:
         # calculate left celerity using backwards characteristic
-        leftBoundaryCelerity = (leftBoundaryVelocity - velocityright + 2*celerityright -
-                                gravity * dt * (1 * gridPointB.frictionSlope)) / 2
+        rightBoundaryCelerity = (velocityLeft + 2*celerityLeft -
+                                gravity * dt * (1 * gridPointA.frictionSlope)) / 2
     else:
-        leftBoundaryCelerity = (leftBoundaryVelocity - velocityright + 2*celerityright) / 2
+        rightBoundaryCelerity = (velocityLeft + 2*celerityLeft) / 2
 
-    leftBoundaryDepth = leftBoundaryCelerity**2 / gravity
+    rightBoundaryDepth = rightBoundaryCelerity**2 / gravity
 
-    currentHydraulicDiameter = calculateHydraulicDiameter(leftBoundaryDepth, gridPointB.xLocation)
-    currentFrictionSlope = calculateFrictionSlope(frictionFactor, leftBoundaryVelocity, currentHydraulicDiameter)
-    leftBoundaryGridpoint = GridPoint(leftBoundaryDepth, leftBoundaryCelerity, leftBoundaryVelocity,
-                                      currentFrictionSlope, gridPointB.xLocation)
-    return leftBoundaryGridpoint
+    currentHydraulicDiameter = calculateHydraulicDiameter(rightBoundaryDepth, gridPointA.xLocation)
+    currentFrictionSlope = calculateFrictionSlope(frictionFactor, rightBoundaryVelocity, currentHydraulicDiameter)
+    rightBoundaryGridpoint = GridPoint(rightBoundaryDepth, rightBoundaryCelerity, rightBoundaryVelocity,
+                                      currentFrictionSlope, gridPointA.xLocation)
+    return rightBoundaryGridpoint
 
 def calculateLeft(dtDx, gridPointA, gridpointB):
     velocityLeft = (gridpointB.velocity +
                     dtDx*(gridpointB.celerity * gridPointA.velocity - gridPointA.celerity * gridpointB.velocity)) \
                    / (1 + dtDx*(gridpointB.velocity +gridpointB.celerity - gridPointA.velocity - gridPointA.celerity))
 
-    celerityLeft = ((gridpointB.celerity) + velocityLeft*(gridPointA.celerity - gridpointB.celerity)) \
+    celerityLeft = ((gridpointB.celerity) + dtDx* velocityLeft*(gridPointA.celerity - gridpointB.celerity)) \
                    / (1 + dtDx * (gridpointB.celerity - gridPointA.celerity))
 
     depthLeft = (celerityLeft ** 2) / gravity
@@ -138,9 +135,9 @@ def calculateRight(dtDx, gridpointB, gridpointC):
     velocityRight = (gridpointB.velocity +
                     dtDx * (gridpointB.celerity * gridpointC.velocity - gridpointC.celerity * gridpointB.velocity)) \
                    / (1 + dtDx * (
-                gridpointC.velocity + gridpointC.celerity - gridpointB.velocity - gridpointB.celerity))
+                gridpointC.velocity + gridpointB.celerity - gridpointB.velocity - gridpointC.celerity))
 
-    celerityRight = ((gridpointB.celerity) + velocityRight * (gridpointB.celerity - gridpointC.celerity)) \
+    celerityRight = ((gridpointB.celerity) + dtDx * velocityRight * (gridpointB.celerity - gridpointC.celerity)) \
                    / (1 + dtDx * (gridpointB.celerity - gridpointC.celerity))
 
     depthRight = (celerityRight ** 2) / gravity
