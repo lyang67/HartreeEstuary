@@ -288,22 +288,32 @@ if __name__ == '__main__':
 
     with open('results.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        headingGrids = ['Time' , 'Left Boundary', ' ',
-                        '', 'Gridpoint 1', '',
-                        '', 'Gridpoint 2', '',
-                        '', 'Gridpoint 3', '',
-                        '', 'Gridpoint 4', '',
-                        '', 'Gridpoint 5', '',
-                        '', 'Right Boundary', '']
+        headingGrids = ['Time (s)' , 'Left Boundary', ' ']
+
+        gridCounter = 1
+
+        while gridCounter < numHorizontalGridPoints - 1:
+            headingGrids.append('')
+            headingGrids.append('Gridpoint ' + str(gridCounter))
+            headingGrids.append('')
+            gridCounter += 1
+
+        headingGrids.append('')
+        headingGrids.append('Right Boundary')
+        headingGrids.append('')
+
         writer.writerow(headingGrids)
 
-        headingTypes = ['', 'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
-                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
-                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
-                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
-                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
-                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)',
-                        'Depth (m)', 'Celerity(m/s)', 'Velocity (m/s)']
+        #write the next heading row
+        gridCounter = 0
+
+        headingTypes = ['']
+        while gridCounter < numHorizontalGridPoints:
+            headingTypes.append('Depth (m)')
+            headingTypes.append('Celerity(m/s)')
+            headingTypes.append('Velocity (m/s)')
+
+            gridCounter += 1
         writer.writerow(headingTypes)
 
         timestepCounter = 0
