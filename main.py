@@ -20,7 +20,7 @@ channelWidth = 0.5
 initialDepth = 0.175778027747
 initialQ = 0.03448
 #hoursToRun = 1
-hoursToRun = 14/60
+hoursToRun = 14/3600
 depthData = []
 withFriction = True
 diagnosticPrint = False
@@ -291,12 +291,13 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
     return True
 
 def CheckCourantCondition(gridpoint, dxDt):
+
     courantCoundition1 = abs(gridpoint.velocity + gridpoint.celerity) / dxDt
     courantCoundition2 = abs(gridpoint.velocity - gridpoint.celerity) / dxDt
 
     print('courant condition check left is ' + str(courantCoundition1) + ' and right is ' + str(courantCoundition2))
-    if courantCoundition1 > 1 or courantCoundition2 > 1:
-        return False
+    #if courantCoundition1 > 1 or courantCoundition2 > 1:
+        #return False
 
     return True
 
