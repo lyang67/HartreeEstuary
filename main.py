@@ -5,17 +5,28 @@ import csv
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 gravity = 9.8
-frictionFactor = 0.025
+frictionFactor = 0.02
 
 # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
-numHorizontalGridPoints = 20
+#numHorizontalGridPoints = 10
+numHorizontalGridPoints = 121
 #original 300 dx, 30 dt
-horizontalGridSize = 100
-verticalGridSize = 5
-hoursToRun = 1
-withFriction = False
+horizontalGridSize = 0.1
+verticalGridSize = 0.05
+#channelWidth = 12
+channelWidth = 0.5
+#initialDepth = 6
+#initialDepth = 2
+initialDepth = 0.175778027747
+initialQ = 0.03448
+#hoursToRun = 1
+hoursToRun = 14/60
+depthData = []
+withFriction = True
 diagnosticPrint = False
 compareAnalytical = False
+#big ugly switch to turn off everything in main
+testOther = False
 
 class GridPoint:
     def __init__(self, d, c, v, sf, x):
@@ -25,12 +36,22 @@ class GridPoint:
         self.frictionSlope = sf
         self.xLocation = x
 
+def populateDepthBoundary():
+    with open('DepthData.csv', mode='r') as file:
+        # reading the CSV file
+        depthFile = csv.reader(file)
+
+        # displaying the contents of the CSV file
+        for lines in depthFile:
+            depthData.append(float(lines[0]))
+        print (depthData)
+
 def set_init_conditions():
-    initialDepth = 6
     initialCelerity = math.sqrt(gravity * initialDepth)
-    initialVelocity = 0
-    initialCrossSection = initialDepth*50
-    initialWettedPerimeter = 2*initialDepth + 50
+    #initialVelocity = 0
+    initialCrossSection = initialDepth*channelWidth
+    initialVelocity = -initialQ /initialCrossSection
+    initialWettedPerimeter = 2*initialDepth + channelWidth
     initialHydraulicDiameter = (4*initialCrossSection) / initialWettedPerimeter
     initialFrictionSlope = calculateFrictionSlope(frictionFactor, initialVelocity, initialHydraulicDiameter)
 
@@ -42,17 +63,6 @@ def set_init_conditions():
         initialGridPoints.append(initialGridPoint)
         gridCounter += 1
 
-    #leftBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 0)
-    #site2CGridpoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 300)
-    #site22GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 600)
-    #site21GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 900)
-    #site2BGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1200)
-    #site2GridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1500)
-    #rightBoundaryGridPoint = GridPoint(initialDepth, initialCelerity, initialVelocity, initialFrictionSlope, 1800)
-
-   # initGridPoints = [leftBoundaryGridPoint, site2CGridpoint, site22GridPoint, site21GridPoint, site2BGridPoint,
-                      #site2GridPoint, rightBoundaryGridPoint]
-
     allGridPoints = [initialGridPoints]
     return allGridPoints
 
@@ -62,11 +72,14 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
         return
 
     dtDx = dt / dx
+
     #convert time to hours
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
     #rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
-    leftBoundaryDepth = 6-(time/3600)*0.5
+    #leftBoundaryDepth = 6-(time/3600)*0.5
+    depthIndex = int(time/verticalGridSize)
+    leftBoundaryDepth = depthData[depthIndex]
     leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
 
     rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
@@ -91,21 +104,32 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
         return
     dtDx = dt / dx
     #right boundary velocity is 0 since there is no inflow
-    rightBoundaryVelocity = 0
+    #rightBoundaryVelocity = 0
+
+    if time < 120:
+        rightBoundaryVelocity = (1/120) * time
+    else:
+        rightBoundaryVelocity = 1
+
+    #boundary condiiton
+    rightBoundaryDepth = initialDepth
+    rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     # calculate right gridpoint
-    leftGridPoint = calculateRight(dtDx, gridPointA, gridpointB)
+    leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
     velocityLeft= leftGridPoint.velocity
     celerityLeft = leftGridPoint.celerity
 
     if withFriction:
         # calculate left celerity using backwards characteristic
-        rightBoundaryCelerity = (velocityLeft + 2*celerityLeft -
-                                gravity * dt * (1 * gridPointA.frictionSlope)) / 2
+        #rightBoundaryCelerity = (velocityLeft + 2*celerityLeft -
+                                #gravity * dt * (1 * gridPointA.frictionSlope)) / 2
+
+        rightBoundaryVelocity = velocityLeft +2*celerityLeft - 2*gridpointB.celerity - gravity * dt * (gridpointB.frictionSlope)
     else:
         rightBoundaryCelerity = (velocityLeft + 2*celerityLeft) / 2
 
-    rightBoundaryDepth = rightBoundaryCelerity**2 / gravity
+    #rightBoundaryDepth = rightBoundaryCelerity**2 / gravity
 
     currentHydraulicDiameter = calculateHydraulicDiameter(rightBoundaryDepth, gridPointA.xLocation)
     currentFrictionSlope = calculateFrictionSlope(frictionFactor, rightBoundaryVelocity, currentHydraulicDiameter)
@@ -161,12 +185,15 @@ def calculateHydraulicDiameter(depth, xLocation):
     return (4 * crossSectionArea) / wettedPerimeter
 
 def calculateFrictionSlope(frictionFactor, interpolatedVelocity, hydraulicDiameter):
-    frictionSlope = (frictionFactor * interpolatedVelocity * abs(interpolatedVelocity))/(8 * gravity * (hydraulicDiameter / 4))
+    #frictionSlope = (frictionFactor * interpolatedVelocity * abs(interpolatedVelocity))/(8 * gravity * (hydraulicDiameter / 4))
+    frictionSlope = (frictionFactor * interpolatedVelocity**2) / (
+                8 * gravity * (hydraulicDiameter / 4))
+
     return frictionSlope
 
 #TODO replace with varied bottom width function
 def getBottomWidthAtLocation(xLocation):
-    return 50
+    return channelWidth
 
 def populateGrid(mainGrid, timestepSize, xDistanceSize):
     # calculate the number of timesteps we have in a 24 hour period
@@ -218,8 +245,7 @@ def populateGrid(mainGrid, timestepSize, xDistanceSize):
                 #alternative versions of velocity and celerity calculation with friction
                 currentVelocity = (left.velocity + right.velocity + 2 * (left.celerity - right.celerity) \
                                    - gravity * timestepSize * gridPointB.frictionSlope) / 2
-                currentCelerity = (left.velocity - right.velocity + 2 * (left.celerity + right.celerity) \
-                                   - gravity * timestepSize * gridPointB.frictionSlope) / 4
+                currentCelerity = (left.velocity - right.velocity + 2 * (left.celerity + right.celerity))  / 4
 
             else:
                 # ignore friction factor for now
@@ -276,69 +302,74 @@ def CheckCourantCondition(gridpoint, dxDt):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    #TODO: the sites don't look 250m apart, but figure this out later
-    gridSizeX = horizontalGridSize
-    #set our timestep to 30s
-    gridSizeY = verticalGridSize
-    hartTreeGrid = set_init_conditions()
-    populateGridResult = populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
 
-    if populateGridResult is not True:
-        print('Courant condition check failed, check output')
+    if not testOther:
 
-    with open('results.csv', 'w', newline='') as file:
-        writer = csv.writer(file)
-        headingGrids = ['Time (s)' , 'Left Boundary', ' ']
+        populateDepthBoundary()
+        #TODO: the sites don't look 250m apart, but figure this out later
+        gridSizeX = horizontalGridSize
+        #set our timestep to 30s
+        gridSizeY = verticalGridSize
+        hartTreeGrid = set_init_conditions()
+        populateGridResult = populateGrid(hartTreeGrid,gridSizeY, gridSizeX)
 
-        gridCounter = 1
+        if populateGridResult is not True:
+            print('Courant condition check failed, check output')
 
-        while gridCounter < numHorizontalGridPoints - 1:
+        with open('results.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            headingGrids = ['Time (s)' , 'Left Boundary', ' ']
+
+            gridCounter = 1
+
+            while gridCounter < numHorizontalGridPoints - 1:
+                headingGrids.append('')
+                headingGrids.append('Gridpoint ' + str(gridCounter))
+                headingGrids.append('')
+                gridCounter += 1
+
             headingGrids.append('')
-            headingGrids.append('Gridpoint ' + str(gridCounter))
+            headingGrids.append('Right Boundary')
             headingGrids.append('')
-            gridCounter += 1
 
-        headingGrids.append('')
-        headingGrids.append('Right Boundary')
-        headingGrids.append('')
+            writer.writerow(headingGrids)
 
-        writer.writerow(headingGrids)
-
-        #write the next heading row
-        gridCounter = 0
-
-        headingTypes = ['']
-        while gridCounter < numHorizontalGridPoints:
-            headingTypes.append('Depth (m)')
-            headingTypes.append('Celerity(m/s)')
-            headingTypes.append('Velocity (m/s)')
-
-            gridCounter += 1
-        writer.writerow(headingTypes)
-
-        timestepCounter = 0
-
-        for timestep in hartTreeGrid:
-            timeValue = timestepCounter * verticalGridSize
-            if compareAnalytical:
-                if timeValue % 30 != 0:
-                    #only print out 30s timesteps for ease of comparing with analytical solution
-                    timestepCounter += 1
-                    continue
-
+            #write the next heading row
             gridCounter = 0
-            currentTimestepValues = [timeValue]
-            for gridpoint in hartTreeGrid[timestepCounter]:
-                currentTimestepValues.append(gridpoint.depth)
-                currentTimestepValues.append(gridpoint.celerity)
-                currentTimestepValues.append(gridpoint.velocity)
 
-                if diagnosticPrint:
-                    print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
-                          + ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
+            headingTypes = ['']
+            while gridCounter < numHorizontalGridPoints:
+                headingTypes.append('Depth (m)')
+                headingTypes.append('Celerity(m/s)')
+                headingTypes.append('Velocity (m/s)')
 
                 gridCounter += 1
-            writer.writerow(currentTimestepValues)
-            timestepCounter += 1
+            writer.writerow(headingTypes)
 
+            timestepCounter = 0
+
+            for timestep in hartTreeGrid:
+                timeValue = timestepCounter * verticalGridSize
+                if compareAnalytical:
+                    if timeValue % 30 != 0:
+                        #only print out 30s timesteps for ease of comparing with analytical solution
+                        timestepCounter += 1
+                        continue
+
+                gridCounter = 0
+                currentTimestepValues = [timeValue]
+                for gridpoint in hartTreeGrid[timestepCounter]:
+                    currentTimestepValues.append(gridpoint.depth)
+                    currentTimestepValues.append(gridpoint.celerity)
+                    currentTimestepValues.append(gridpoint.velocity)
+
+                    if diagnosticPrint:
+                        print('Grid number ' + str(gridCounter) + ' Celerity is ' + str(gridpoint.celerity)
+                              + ' Depth is ' + str(gridpoint.depth) + ' Velocity is ' + str(gridpoint.velocity))
+
+                    gridCounter += 1
+                writer.writerow(currentTimestepValues)
+                timestepCounter += 1
+    else:
+        populateDepthBoundary()
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
