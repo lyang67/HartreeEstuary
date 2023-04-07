@@ -5,24 +5,27 @@ import csv
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 gravity = 9.8
-frictionFactor = 0.02
+#frictionFactor = 0.02
+frictionFactor = 0.015
 
 # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
-#numHorizontalGridPoints = 10
-numHorizontalGridPoints = 121
+numHorizontalGridPoints = 10
+#numHorizontalGridPoints = 121
 #original 300 dx, 30 dt
-horizontalGridSize = 0.1
-verticalGridSize = 0.05
+#horizontalGridSize = 0.1
+#verticalGridSize = 0.05
+horizontalGridSize = 200
+verticalGridSize = 20
 #channelWidth = 12
 channelWidth = 0.5
 #initialDepth = 6
-#initialDepth = 2
-initialDepth = 0.175778027747
+initialDepth = 2
+#initialDepth = 0.175778027747
 initialQ = 0.03448
-#hoursToRun = 1
-hoursToRun = 14/3600
+hoursToRun = 1
+#hoursToRun = 14/3600
 depthData = []
-withFriction = True
+withFriction = False
 diagnosticPrint = False
 compareAnalytical = False
 #big ugly switch to turn off everything in main
@@ -48,9 +51,9 @@ def populateDepthBoundary():
 
 def set_init_conditions():
     initialCelerity = math.sqrt(gravity * initialDepth)
-    #initialVelocity = 0
+    initialVelocity = 0
     initialCrossSection = initialDepth*channelWidth
-    initialVelocity = -initialQ /initialCrossSection
+    #initialVelocity = -initialQ /initialCrossSection
     initialWettedPerimeter = 2*initialDepth + channelWidth
     initialHydraulicDiameter = (4*initialCrossSection) / initialWettedPerimeter
     initialFrictionSlope = calculateFrictionSlope(frictionFactor, initialVelocity, initialHydraulicDiameter)
@@ -79,7 +82,8 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
     #rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
     #leftBoundaryDepth = 6-(time/3600)*0.5
     depthIndex = int(time/verticalGridSize)
-    leftBoundaryDepth = depthData[depthIndex]
+    #leftBoundaryDepth = depthData[depthIndex]
+    leftBoundaryDepth = initialDepth
     leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
 
     rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
@@ -111,9 +115,9 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
     else:
         rightBoundaryVelocity = 1
 
-    #boundary condiiton
-    rightBoundaryDepth = initialDepth
-    rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
+    #boundary condiiton for class example hartree
+    #rightBoundaryDepth = initialDepth
+    #rightBoundaryCelerity = math.sqrt(gravity * rightBoundaryDepth)
 
     # calculate right gridpoint
     leftGridPoint = calculateLeft(dtDx, gridPointA, gridpointB)
@@ -122,14 +126,13 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
 
     if withFriction:
         # calculate left celerity using backwards characteristic
-        #rightBoundaryCelerity = (velocityLeft + 2*celerityLeft -
-                                #gravity * dt * (1 * gridPointA.frictionSlope)) / 2
+        rightBoundaryCelerity = (velocityLeft + 2*celerityLeft - rightBoundaryVelocity - gravity * dt * (1 * gridpointB.frictionSlope)) / 2
 
-        rightBoundaryVelocity = velocityLeft +2*celerityLeft - 2*gridpointB.celerity - gravity * dt * (gridpointB.frictionSlope)
+        #rightBoundaryVelocity = velocityLeft +2*celerityLeft - 2*gridpointB.celerity - gravity * dt * (gridpointB.frictionSlope)
     else:
-        rightBoundaryCelerity = (velocityLeft + 2*celerityLeft) / 2
+        rightBoundaryCelerity = (velocityLeft + 2*celerityLeft - rightBoundaryVelocity) / 2
 
-    #rightBoundaryDepth = rightBoundaryCelerity**2 / gravity
+    rightBoundaryDepth = rightBoundaryCelerity**2 / gravity
 
     currentHydraulicDiameter = calculateHydraulicDiameter(rightBoundaryDepth, gridPointA.xLocation)
     currentFrictionSlope = calculateFrictionSlope(frictionFactor, rightBoundaryVelocity, currentHydraulicDiameter)
@@ -325,7 +328,7 @@ if __name__ == '__main__':
 
             while gridCounter < numHorizontalGridPoints - 1:
                 headingGrids.append('')
-                headingGrids.append('Gridpoint ' + str(gridCounter))
+                headingGrids.append('Gridpoint ' + str(gridCounter) + ' at x dist ' + str(horizontalGridSize*gridCounter))
                 headingGrids.append('')
                 gridCounter += 1
 
