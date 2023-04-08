@@ -188,9 +188,10 @@ def calculateHydraulicDiameter(depth, xLocation):
     return (4 * crossSectionArea) / wettedPerimeter
 
 def calculateFrictionSlope(frictionFactor, interpolatedVelocity, hydraulicDiameter):
+    #this is the correct version but for some reason the example spreadsheet given to us doesn't use this,
+    # it just squares the velocity
     #frictionSlope = (frictionFactor * interpolatedVelocity * abs(interpolatedVelocity))/(8 * gravity * (hydraulicDiameter / 4))
-    frictionSlope = (frictionFactor * interpolatedVelocity**2) / (
-                8 * gravity * (hydraulicDiameter / 4))
+    frictionSlope = (frictionFactor * interpolatedVelocity**2) / (8 * gravity * (hydraulicDiameter / 4))
 
     return frictionSlope
 
