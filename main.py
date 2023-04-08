@@ -9,7 +9,7 @@ gravity = 9.8
 frictionFactor = 0.015
 
 # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
-numHorizontalGridPoints = 10
+numHorizontalGridPoints = 11
 #numHorizontalGridPoints = 121
 #original 300 dx, 30 dt
 #horizontalGridSize = 0.1
@@ -25,7 +25,7 @@ initialQ = 0.03448
 hoursToRun = 1
 #hoursToRun = 14/3600
 depthData = []
-withFriction = False
+withFriction = True
 diagnosticPrint = False
 compareAnalytical = False
 #big ugly switch to turn off everything in main
