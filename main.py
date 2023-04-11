@@ -9,23 +9,25 @@ gravity = 9.8
 frictionFactor = 0.015
 
 # we have 5 known stations, and 2 boundary conditions, so 5 + 2 grids points in the horizontal direction
-numHorizontalGridPoints = 11
+#numHorizontalGridPoints = 11
+numHorizontalGridPoints = 23
 #numHorizontalGridPoints = 121
 #original 300 dx, 30 dt
 #horizontalGridSize = 0.1
 #verticalGridSize = 0.05
 horizontalGridSize = 200
-verticalGridSize = 20
+verticalGridSize = 10
 #channelWidth = 12
 channelWidth = 0.5
-#initialDepth = 6
-initialDepth = 2
+initialDepth = 6
+#initialDepth = 2
 #initialDepth = 0.175778027747
 initialQ = 0.03448
-hoursToRun = 1
+#hoursToRun = 1
+hoursToRun = 600/3600 #run until surge reaches end of channel
 #hoursToRun = 14/3600
 depthData = []
-withFriction = True
+withFriction = False
 diagnosticPrint = False
 compareAnalytical = False
 #big ugly switch to turn off everything in main
@@ -80,10 +82,10 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
     #rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
-    #leftBoundaryDepth = 6-(time/3600)*0.5
+    leftBoundaryDepth = 6-(time/3600)*0.5
     depthIndex = int(time/verticalGridSize)
     #leftBoundaryDepth = depthData[depthIndex]
-    leftBoundaryDepth = initialDepth
+    #leftBoundaryDepth = initialDepth
     leftBoundaryCelerity = math.sqrt(gravity * leftBoundaryDepth)
 
     rightGridPoint = calculateRight(dtDx, gridPointB, gridpointC)
@@ -108,12 +110,12 @@ def calculateRightBoundaryConditions(time, gridPointA, gridpointB, dt, dx):
         return
     dtDx = dt / dx
     #right boundary velocity is 0 since there is no inflow
-    #rightBoundaryVelocity = 0
+    rightBoundaryVelocity = 0
 
-    if time < 120:
-        rightBoundaryVelocity = (1/120) * time
-    else:
-        rightBoundaryVelocity = 1
+    #if time < 120:
+        #rightBoundaryVelocity = (1/120) * time
+    #else:
+        #rightBoundaryVelocity = 1
 
     #boundary condiiton for class example hartree
     #rightBoundaryDepth = initialDepth
