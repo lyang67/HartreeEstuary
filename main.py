@@ -19,12 +19,13 @@ horizontalGridSize = 200
 verticalGridSize = 10
 #channelWidth = 12
 channelWidth = 0.5
-initialDepth = 6
+initialDepth = 7
 #initialDepth = 2
 #initialDepth = 0.175778027747
 initialQ = 0.03448
 #hoursToRun = 1
-hoursToRun = 600/3600 #run until surge reaches end of channel
+#hoursToRun = 600/3600 #run until surge reaches end of channel
+hoursToRun = 540/3600 #run until surge reaches end of channel
 #hoursToRun = 14/3600
 depthData = []
 withFriction = False
@@ -81,8 +82,8 @@ def calculateLeftBoundaryConditions(time, gridPointB, gridpointC, dt, dx):
     #convert time to hours
     timeHours = time / 3600
     #TODO make a proper function for tidal depths according to time, just use a rough placeholder function now
-    #rightBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
-    leftBoundaryDepth = 6-(time/3600)*0.5
+    leftBoundaryDepth = math.cos(0.166 * math.pi * timeHours) + 6
+    #leftBoundaryDepth = 6-(time/3600)*0.5
     depthIndex = int(time/verticalGridSize)
     #leftBoundaryDepth = depthData[depthIndex]
     #leftBoundaryDepth = initialDepth
